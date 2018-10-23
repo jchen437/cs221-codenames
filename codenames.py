@@ -9,6 +9,9 @@ from typing import List, Tuple, Iterable
 # when you play as agent and the bot as spymaster.
 log_file = open("log_file", "w")
 
+clue_count = []
+wrong_guesses = 0
+turns_taken = 0
 
 class Reader:
     def read_picks(
@@ -44,6 +47,7 @@ class TerminalReader(Reader):
     def read_picks(
         self, words: List[str], my_words: Iterable[str], cnt: int
     ) -> List[str]:
+        global wrong_guesses
         picks = []
         while len(picks) < cnt:
             guess = None
@@ -53,6 +57,7 @@ class TerminalReader(Reader):
             if guess in my_words:
                 print("Correct!")
             else:
+                wrong_guesses += 1
                 print("Wrong :(")
                 break
         return picks
@@ -101,11 +106,11 @@ class Codenames:
     def load(self, datadir):
         # Glove word vectors
         print("...Loading vectors")
-        self.vectors = np.load(f"{datadir}/glove.6B.300d.npy")
+        self.vectors = np.load("%s/glove.6B.300d.npy" % datadir)
 
         # List of all glove words
         print("...Loading words")
-        self.word_list = [w.lower().strip() for w in open(f"{datadir}/words")]
+        self.word_list = [w.lower().strip() for w in open("%s/words" % datadir)]
         self.weirdness = [math.log(i + 1) + 1 for i in range(len(self.word_list))]
 
         # Indexing back from word to indices
@@ -114,7 +119,7 @@ class Codenames:
 
         # All words that are allowed to go onto the table
         print("...Loading codenames")
-        self.codenames: List[str] = [
+        self.codenames = [
             word
             for word in (w.lower().strip().replace(" ", "-") for w in open("wordlist2"))
             if word in self.word_to_index
@@ -203,6 +208,11 @@ class Codenames:
         """
         Play a complete game, with the robot being the spymaster.
         """
+        global clue_count, wrong_guesses, turns_taken
+        clue_count = []
+        wrong_guesses = 0
+        turns_taken = 0
+
         words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
         my_words = set(random.sample(words, self.cnt_agents))
         used_clues = set(my_words)
@@ -218,6 +228,9 @@ class Codenames:
             # Save the clue, so we don't use it again
             used_clues.add(clue)
 
+            clue_count.append(len(group))
+            turns_taken += 1
+
             print()
             print(
                 'Clue: "{} {}" (certainty {:.2f}, remaining words {})'.format(
@@ -229,6 +242,9 @@ class Codenames:
                 words[words.index(pick)] = "---"
                 if pick in my_words:
                     my_words.remove(pick)
+
+        score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
+        print("final score:", score)
 
     def play_agent(self, reader: Reader):
         """
@@ -258,7 +274,7 @@ class Codenames:
 
 def main():
     cn = Codenames()
-    cn.load("data")
+    cn.load("dataset")
     reader = TerminalReader()
     while True:
         try:
