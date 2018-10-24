@@ -15,13 +15,12 @@ turns_taken = 0
 
 class Reader:
     def read_picks(
-        self, words: List[str], my_words: Iterable[str], cnt: int
-    ) -> List[str]:
+        self, words: List[str], my_words: Iterable[str], guesses_left: int) -> List[str]:
         """
         Query the user for guesses.
         :param words: Words the user can choose from.
         :param my_words: Correct words.
-        :param cnt: Number of guesses the user has.
+        :param guesses_left: Number of guesses left
         :return: The words picked by the user.
         """
         raise NotImplementedError
@@ -45,22 +44,17 @@ class Reader:
 
 class TerminalReader(Reader):
     def read_picks(
-        self, words: List[str], my_words: Iterable[str], cnt: int
-    ) -> List[str]:
+        self, words: List[str], my_words: Iterable[str], guesses_left: int) -> List[str]:
         global wrong_guesses
-        picks = []
-        while len(picks) < cnt:
-            guess = None
-            while guess not in words:
-                guess = input("Your guess: ").strip().lower()
-            picks.append(guess)
-            if guess in my_words:
-                print("Correct!")
-            else:
-                wrong_guesses += 1
-                print("Wrong :(")
-                break
-        return picks
+        print("Guesses left:", guesses_left)
+        print("Remaining words:",  len(my_words))
+        guess = input("Your guess: ").strip().lower()
+        if guess in my_words:
+            print("Correct!")
+        else:
+            wrong_guesses += 1
+            print("Wrong :(")
+        return guess
 
     def read_clue(self, word_set) -> Tuple[str, int]:
         while True:
@@ -217,7 +211,6 @@ class Codenames:
         my_words = set(random.sample(words, self.cnt_agents))
         used_clues = set(my_words)
         while my_words:
-            reader.print_words(words, nrows=self.cnt_rows)
 
             clue, score, group = self.find_clue(words, list(my_words), used_clues)
             # Print the clue to the log_file for "debugging" purposes
@@ -238,10 +231,21 @@ class Codenames:
                 )
             )
             print()
-            for pick in reader.read_picks(words, my_words, len(group)):
+            guesses_left = len(group)
+            while guesses_left:
+                reader.print_words(words, nrows=self.cnt_rows)
+                pick = reader.read_picks(words, my_words, guesses_left)
                 words[words.index(pick)] = "---"
                 if pick in my_words:
                     my_words.remove(pick)
+                    guesses_left -= 1
+                else:
+                    guesses_left = 0
+
+            # for pick in reader.read_picks(words, my_words, len(group)):
+            #     words[words.index(pick)] = "---"
+            #     if pick in my_words:
+            #         my_words.remove(pick)
 
         score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
         print("final score:", score)
