@@ -4,6 +4,8 @@ import numpy as np
 import math
 import csv
 import os
+from nltk.stem import PorterStemmer
+import ngrams
 
 from typing import List, Tuple, Iterable
 
@@ -18,7 +20,7 @@ TRAIN_DATA_DIR = 'generated_data'
 
 class Reader:
     def read_picks(
-        self, words: List[str], my_words: Iterable[str], guesses_left: int) -> List[str]:
+        self, words, my_words, guesses_left) -> List[str]:
         """
         Query the user for guesses.
         :param words: Words the user can choose from.
@@ -104,11 +106,14 @@ class Codenames:
     def load(self, datadir):
         # Glove word vectors
         print("...Loading vectors")
-        self.vectors = np.load("%s/glove.6B.300d.npy" % datadir)
+        # self.vectors = np.load("%s/glove.6B.300d.npy" % datadir)
+        self.vectors = np.load('word2vec.dat.wv.vectors.npy')
 
         # List of all glove words
         print("...Loading words")
-        self.word_list = [w.lower().strip() for w in open("%s/words" % datadir)]
+        # self.word_list = [w.lower().strip() for w in open("%s/words" % datadir)]
+        self.word_list = [w.lower().strip() for w in open("kirkby_wv.txt")]
+        # print("wordlist:", self.word_list)
         self.weirdness = [math.log(i + 1) + 1 for i in range(len(self.word_list))]
 
         # Indexing back from word to indices
@@ -130,6 +135,8 @@ class Codenames:
         :param word: To be vectorized.
         :return: The vector.
         """
+        if word == "---":
+            return np.zeros(self.vectors[0].shape)
         return self.vectors[self.word_to_index[word]]
 
     def most_similar_to_given(self, clue: str, choices: List[str]) -> str:
@@ -163,12 +170,23 @@ class Codenames:
 
         best_clue, best_score, best_k, best_g = None, -1, 0, ()
         for step, (clue, lower_bound, scores) in enumerate(zip(self.word_list, nm, pm)):
+
+            # print("words:", clue, lower_bound, scores)
+            
             if step % 20000 == 0:
                 print(".", end="", flush=True)
 
             # If the best score is lower than the lower bound, there is no reason
             # to even try it.
-            if max(scores) <= lower_bound or clue in black_list:
+            ps = PorterStemmer()
+            stem = ps.stem(clue)
+
+            prob = ngrams.Pwords([clue.lower()])
+            if prob < 1e-13:
+                continue
+            if any([word in clue for word in my_words]):
+                continue
+            if max(scores) <= lower_bound or stem in my_words or clue in black_list or stem in black_list:
                 continue
 
             # Order scores by lowest to highest inner product with the clue.
@@ -182,6 +200,7 @@ class Codenames:
                 (
                     (s - lower_bound)
                     * ((len(ss) - j) ** self.agg - .99)
+                    # * -0.1 * math.log(prob)
                     / self.weirdness[step],
                     j,
                 )
@@ -196,6 +215,10 @@ class Codenames:
                     len(group),
                     group,
                 )
+
+            # print("best score:", best_score)
+            # print("best clue:", best_clue)
+            # print("group:", best_g)
 
         # After printing '.'s with end="" we need a clean line.
         print()
@@ -231,7 +254,6 @@ class Codenames:
         my_words = set(random.sample(words, self.cnt_agents))
         used_clues = set(my_words)
         while my_words:
-
             clue, score, group = self.find_clue(words, list(my_words), used_clues)
             # Print the clue to the log_file for "debugging" purposes
             group_scores = np.array(
@@ -255,8 +277,13 @@ class Codenames:
             while guesses_left:
                 reader.print_words(words, nrows=self.cnt_rows)
                 pick = reader.read_picks(words, my_words, guesses_left)
+                if pick not in words:
+                    print("That isn't an option. Please try again!")
+                    continue
+
                 # off board (input) and pick (label)
                 self.save_train_example(words, pick)
+
                 words[words.index(pick)] = "---"
                 if pick in my_words:
                     my_words.remove(pick)
