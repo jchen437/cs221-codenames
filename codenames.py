@@ -232,14 +232,14 @@ class Codenames:
             writer = csv.writer(f)
             writer.writerow([guess] + board)
 
-        train_examples_wordvec_csv = os.path.join(TRAIN_DATA_DIR, 'train_examples_wordvec.csv')
-        with open(train_examples_wordvec_csv, "a") as f:
-            train_ex_matrix = self.word_to_vector(guess)
-            print(train_ex_matrix.shape)
-            for word in board:
-                train_ex_matrix = np.vstack((train_ex_matrix, self.word_to_vector(word)))
+        #train_examples_wordvec_csv = os.path.join(TRAIN_DATA_DIR, 'train_examples_wordvec.csv')
+        #with open(train_examples_wordvec_csv, "a") as f:
+        #    train_ex_matrix = self.word_to_vector(guess)
+        #    print(train_ex_matrix.shape)
+        #    for word in board:
+        #        train_ex_matrix = np.vstack((train_ex_matrix, self.word_to_vector(word)))
 
-            np.savetxt(f, train_ex_matrix)
+        #    np.savetxt(f, train_ex_matrix)
 
     def play_spymaster(self, reader: Reader):
         """

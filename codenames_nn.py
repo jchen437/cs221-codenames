@@ -44,10 +44,9 @@ def create_shallow_model(img_shape, num_classes, activation_fn):
 # TODO create method to load the model, keep it in memory, and make predictions (take softmax --> an actual word)
 def main(_):
   # loading the data
-  #TODO call load data
-  x_train, y_train = None, None #load_data('train', FLAGS.image_dir, (FLAGS.image_height, FLAGS.image_width), FLAGS.train_data_keep_prob)
-  x_dev, y_dev = None, None #load_data('dev', FLAGS.image_dir, (FLAGS.image_height, FLAGS.image_width), FLAGS.train_data_keep_prob)
-  x_test, y_test = None, None #load_data('test', FLAGS.image_dir, (FLAGS.image_height, FLAGS.image_width), FLAGS.train_data_keep_prob)
+  x_train, y_train = load_data('train', FLAGS.image_dir)
+  x_dev, y_dev = load_data('train', FLAGS.image_dir) #TODO change these to test and dev sets
+  x_test, y_test = load_data('train', FLAGS.image_dir)
 
   # train the model or load the existing model
   if (FLAGS.use_pretrained and os.path.exists(FLAGS.model_name + ".json")):
@@ -84,4 +83,5 @@ if __name__ == '__main__':
   FLAGS.use_pretrained = False
   FLAGS.model_name = 'baseline_model'
   FLAGS.num_epochs = 1
+  FLAGS.image_dir = 'generated_data'
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
