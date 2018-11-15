@@ -395,8 +395,8 @@ class Codenames:
             #     if pick in my_words:
             #         my_words.remove(pick)
 
-        #score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
-        #print("final score:", score)
+        score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
+        print("final score:", score)
 
     def play_agent(self, reader: Reader):
         """
