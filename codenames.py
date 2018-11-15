@@ -107,11 +107,17 @@ class Codenames:
         # Glove word vectors
         print("...Loading vectors")
         # self.vectors = np.load("%s/glove.6B.300d.npy" % datadir)
-        self.vectors = np.load('word2vec.dat.wv.vectors.npy')
+        self.vectors = np.load('kirkby_vectors.npy')
+        # self.vectors = np.load('fitted_vectors/glove_fitted.npy')
+        # self.vectors = np.load('fitted_vectors/kirkby_fitted.npy') # not good
+        # self.vectors = np.load('fitted_vectors/glove_with_ontology.npy') # not great
+        # self.vectors = np.load('fitted_vectors/kirkby_with_ontology.npy') # super bad
 
         # List of all glove words
         print("...Loading words")
         # self.word_list = [w.lower().strip() for w in open("%s/words" % datadir)]
+        # self.word_list = [w.lower().strip() for w in open("fitted_vectors/glove_fitted_words.txt")]
+        # self.word_list = [w.lower().strip() for w in open("fitted_vectors/kirkby_fitted_words.txt")]
         self.word_list = [w.lower().strip() for w in open("kirkby_wv.txt")]
         # print("wordlist:", self.word_list)
         self.weirdness = [math.log(i + 1) + 1 for i in range(len(self.word_list))]
@@ -135,9 +141,14 @@ class Codenames:
         :param word: To be vectorized.
         :return: The vector.
         """
+        def normalize(v):
+            norm = np.linalg.norm(v)
+            if norm == 0: 
+               return v
+            return v / norm
         if word == "---":
             return np.zeros(self.vectors[0].shape)
-        return self.vectors[self.word_to_index[word]]
+        return normalize(self.vectors[self.word_to_index[word]])
 
     def most_similar_to_given(self, clue: str, choices: List[str]) -> str:
         """
@@ -149,12 +160,10 @@ class Codenames:
         return max(choices, key=lambda w: self.word_to_vector(w) @ clue_vector)
 
     def find_clue(
-        self, words: List[str], my_words: List[str], black_list: Iterable[str]
-    ) -> Tuple[str, float, List[str]]:
+        self, words: List[str], my_words: List[str]) -> Tuple[str, float, List[str]]:
         """
         :param words: Words on the board.
         :param my_words: Words we want to guess.
-        :param black_list: Clues we are not allowed to give.
         :return: (The best clue, the score, the words we expect to be guessed)
         """
         print("Thinking", end="", flush=True)
@@ -182,11 +191,9 @@ class Codenames:
             stem = ps.stem(clue)
 
             prob = ngrams.Pwords([clue.lower()])
-            if prob < 1e-13:
+            if prob < 1e-12:
                 continue
-            if any([word in clue for word in my_words]):
-                continue
-            if max(scores) <= lower_bound or stem in my_words or clue in black_list or stem in black_list:
+            if max(scores) <= lower_bound or stem in words or clue in self.blacklist or stem in self.blacklist:
                 continue
 
             # Order scores by lowest to highest inner product with the clue.
@@ -225,6 +232,12 @@ class Codenames:
 
         return best_clue, best_score, best_g
 
+    def generate_start_state(self):
+        words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
+        my_words = set(random.sample(words, self.cnt_agents))
+        self.blacklist = set(my_words)
+        return words, my_words
+
     def save_train_example(self, board, guess):
         # add the training example to the csv
         train_examples_csv = os.path.join(TRAIN_DATA_DIR, 'train_examples.csv')
@@ -250,18 +263,17 @@ class Codenames:
         wrong_guesses = 0
         turns_taken = 0
 
-        words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
-        my_words = set(random.sample(words, self.cnt_agents))
-        used_clues = set(my_words)
+        words, my_words = self.generate_start_state()
+
         while my_words:
-            clue, score, group = self.find_clue(words, list(my_words), used_clues)
+            clue, score, group = self.find_clue(words, list(my_words))
             # Print the clue to the log_file for "debugging" purposes
             group_scores = np.array(
                 [self.word_to_vector(w) for w in group]
             ) @ self.word_to_vector(clue)
             print(clue, group, group_scores, file=log_file, flush=True)
             # Save the clue, so we don't use it again
-            used_clues.add(clue)
+            self.blacklist.add(clue)
 
             clue_count.append(len(group))
             turns_taken += 1
@@ -282,7 +294,7 @@ class Codenames:
                     continue
 
                 # off board (input) and pick (label)
-                self.save_train_example(words, pick)
+                # self.save_train_example(words, pick)
 
                 words[words.index(pick)] = "---"
                 if pick in my_words:
@@ -327,22 +339,22 @@ class Codenames:
 
 def main():
     cn = Codenames()
-    cn.load("dataset")
-    reader = TerminalReader()
-    while True:
-        try:
-            mode = input("\nWill you be agent or spymaster?: ")
-        except KeyboardInterrupt:
-            print("\nGoodbye!")
-            break
-        try:
-            if mode == "spymaster":
-                cn.play_agent(reader)
-            elif mode == "agent":
-                cn.play_spymaster(reader)
-        except KeyboardInterrupt:
-            # Catch interrupts from play functions
-            pass
+    # cn.load("dataset")
+    # reader = TerminalReader()
+    # while True:
+    #     try:
+    #         mode = input("\nWill you be agent or spymaster?: ")
+    #     except KeyboardInterrupt:
+    #         print("\nGoodbye!")
+    #         break
+    #     try:
+    #         if mode == "spymaster":
+    #             cn.play_agent(reader)
+    #         elif mode == "agent":
+    #             cn.play_spymaster(reader)
+    #     except KeyboardInterrupt:
+    #         # Catch interrupts from play functions
+    #         pass
 
 
 main()
