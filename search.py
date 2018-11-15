@@ -81,7 +81,7 @@ def find_next_clue(board, my_words, game):
 
     return ucs.actions, ucs.totalCost
 
-def main():
+if __name__ == "__main__":
     cn = codenames.Codenames()
     cn.load("dataset")
     
@@ -97,4 +97,3 @@ def main():
 
     print("Cost:", cost)
 
-main()
