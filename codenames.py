@@ -2,6 +2,8 @@ import random
 import re
 import numpy as np
 import math
+import csv
+import os
 from nltk.stem import PorterStemmer
 import ngrams
 
@@ -14,6 +16,7 @@ log_file = open("log_file", "w")
 clue_count = []
 wrong_guesses = 0
 turns_taken = 0
+TRAIN_DATA_DIR = 'generated_data'
 
 class Reader:
     def read_picks(
@@ -50,6 +53,7 @@ class TerminalReader(Reader):
         global wrong_guesses
         print("Guesses left:", guesses_left)
         print("Remaining words:",  len(my_words))
+        #TODO: replace input with call to neural network
         guess = input("Your guess: ").strip().lower()
         if guess in my_words:
             print("Correct!")
@@ -234,6 +238,22 @@ class Codenames:
         self.blacklist = set(my_words)
         return words, my_words
 
+    def save_train_example(self, board, guess):
+        # add the training example to the csv
+        train_examples_csv = os.path.join(TRAIN_DATA_DIR, 'train_examples.csv')
+        with open(train_examples_csv, "a") as f:
+            writer = csv.writer(f)
+            writer.writerow([guess] + board)
+
+        train_examples_wordvec_csv = os.path.join(TRAIN_DATA_DIR, 'train_examples_wordvec.csv')
+        with open(train_examples_wordvec_csv, "a") as f:
+            train_ex_matrix = self.word_to_vector(guess)
+            print(train_ex_matrix.shape)
+            for word in board:
+                train_ex_matrix = np.vstack((train_ex_matrix, self.word_to_vector(word)))
+
+            np.savetxt(f, train_ex_matrix)
+
     def play_spymaster(self, reader: Reader):
         """
         Play a complete game, with the robot being the spymaster.
@@ -272,6 +292,10 @@ class Codenames:
                 if pick not in words:
                     print("That isn't an option. Please try again!")
                     continue
+
+                # off board (input) and pick (label)
+                # self.save_train_example(words, pick)
+
                 words[words.index(pick)] = "---"
                 if pick in my_words:
                     my_words.remove(pick)
