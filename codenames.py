@@ -18,7 +18,20 @@ log_file = open("log_file", "w")
 clue_count = []
 wrong_guesses = 0
 turns_taken = 0
-#TRAIN_DATA_DIR = 'generated_data'
+RESULTS_FILE_PATH = "results.csv"
+
+def log_result(score, clue_count, turns_taken, wrong_guesses):
+    # log result of the game
+    new_file = False
+    if (not os.path.isfile(RESULTS_FILE_PATH)):
+        new_file = True
+        
+    with open (RESULTS_FILE_PATH, 'a') as f:
+        writer = csv.writer(f)
+        if (new_file):
+            writer.writerow(['Final score', 'Clue Count', 'Sum Clue Count', 'Turns Taken', 'Wrong Guesses'])
+        result = [score, clue_count, sum(clue_count), turns_taken, wrong_guesses]
+        writer.writerow(result)
 
 class CodenamesSearchProblem(util.SearchProblem):
     
@@ -186,8 +199,8 @@ class Codenames:
     def load(self, datadir):
         # Glove word vectors
         print("...Loading vectors")
-        self.vectors = np.load("%s/glove.6B.300d.npy" % datadir)
-        #self.vectors = np.load('kirkby_vectors.npy')
+        #self.vectors = np.load("%s/glove.6B.300d.npy" % datadir)
+        self.vectors = np.load('kirkby_vectors.npy')
         # self.vectors = np.load('fitted_vectors/glove_fitted.npy')
         # self.vectors = np.load('fitted_vectors/kirkby_fitted.npy') # not good
         # self.vectors = np.load('fitted_vectors/glove_with_ontology.npy') # not great
@@ -397,6 +410,8 @@ class Codenames:
 
         score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
         print("final score:", score)
+
+        log_result(score, clue_count, turns_taken, wrong_guesses)
 
     def play_agent(self, reader: Reader):
         """
