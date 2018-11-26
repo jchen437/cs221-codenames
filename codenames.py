@@ -14,6 +14,7 @@ from typing import List, Tuple, Iterable
 # This file stores the "solutions" the bot had intended,
 # when you play as agent and the bot as spymaster.
 log_file = open("log_file", "w")
+game_log = open("game_log.txt", "a+")
 
 clue_count = []
 wrong_guesses = 0
@@ -58,7 +59,7 @@ class CodenamesSearchProblem(util.SearchProblem):
             new_board = tuple([w for w in board if w not in group])
             new_words = tuple([w for w in my_words if w not in group])
             #actions.append(("%s for group %s" % (clue, group), (new_board, new_words), self.cost(clue, group)))
-            actions.append( ((clue, group), (new_board, new_words), self.cost(clue, group)) )
+            actions.append( ((clue, group), (new_board, new_words), self.cost(clue, group, board, my_words)) )
         return actions
 
     def generate_poss_clues(self, board, my_words):
@@ -96,16 +97,21 @@ class CodenamesSearchProblem(util.SearchProblem):
 
         return clue_groups
 
-    def cost(self, clue, group):
+    def cost(self, clue, group, board, my_words):
+        # negs = [w for w in board if w not in my_words]
         clue_vec = self.game.word_to_vector(clue)
         cost = 0
         for word in group:
             word_vec = self.game.word_to_vector(word)
             cost -= np.dot(word_vec.T, clue_vec)
+        # for word in negs:
+            # neg_vec = self.game.word_to_vector(word)
+            # cost += np.dot(neg_vec.T, clue_vec)
         return cost
 
 
 def find_next_clue(board, my_words, game):
+
     ucs = util.UniformCostSearch(verbose=0)
     ucs.solve(CodenamesSearchProblem(board, my_words, game))
 
@@ -150,9 +156,11 @@ class TerminalReader(Reader):
         guess = input("Your guess: ").strip().lower()
         if guess in my_words:
             print("Correct!")
+            print("Guess: %s - correct" % guess, file=game_log, flush=True)
         else:
             wrong_guesses += 1
             print("Wrong :(")
+            print("Guess: %s - not correct" % guess, file=game_log, flush=True)
         return guess
 
     def read_clue(self, word_set) -> Tuple[str, int]:
@@ -166,18 +174,18 @@ class TerminalReader(Reader):
                     continue
                 return clue, int(cnt)
 
-    def print_words(self, words: List[str], nrows: int):
+    def print_words(self, words: List[str], nrows: int, to_file=None):
         longest = max(map(len, words))
-        print()
+        print("", file=to_file, flush=(to_file is not None))
         for row in zip(*(iter(words),) * nrows):
             for word in row:
-                print(word.rjust(longest), end=" ")
-            print()
-        print()
+                print(word.rjust(longest), end=" ", file=to_file, flush=(to_file is not None))
+            print("", file=to_file, flush=(to_file is not None))
+        print("", file=to_file, flush=(to_file is not None))
 
 
 class Codenames:
-    def __init__(self, cnt_rows=5, cnt_cols=5, cnt_agents=8, agg=.6):
+    def __init__(self, cnt_rows=5, cnt_cols=5, cnt_agents=8, agg=.3):
         """
         :param cnt_rows: Number of rows to show.
         :param cnt_cols: Number of columns to show.
@@ -199,7 +207,7 @@ class Codenames:
     def load(self, datadir):
         # Glove word vectors
         print("...Loading vectors")
-        #self.vectors = np.load("%s/glove.6B.300d.npy" % datadir)
+        # self.vectors = np.load("%s/glove.6B.300d.npy" % datadir)
         self.vectors = np.load('kirkby_vectors.npy')
         # self.vectors = np.load('fitted_vectors/glove_fitted.npy')
         # self.vectors = np.load('fitted_vectors/kirkby_fitted.npy') # not good
@@ -358,6 +366,9 @@ class Codenames:
 
         words, my_words = self.generate_start_state()
 
+        print("New game start!", file=game_log, flush=True)
+        reader.print_words(words, nrows=self.cnt_rows, to_file=game_log)
+
         while my_words:
             actions, costs = find_next_clue(tuple(words), tuple(my_words), self)
             clue, group = actions[0]
@@ -379,6 +390,7 @@ class Codenames:
                     clue, len(group), 0, len(my_words)
                 )
             )
+            print("Clue: %s, %s" % (clue, len(group)), file=game_log, flush=True)
             #print(
             #    'Clue: "{} {}" (certainty {:.2f}, remaining words {})'.format(
             #        clue, len(group), score, len(my_words)
@@ -407,6 +419,11 @@ class Codenames:
             #     words[words.index(pick)] = "---"
             #     if pick in my_words:
             #         my_words.remove(pick)
+
+        print("Game finished!", file=game_log, flush=True)
+        print("Average clue count: %s" % str(sum(clue_count) / len(clue_count)), file=game_log, flush=True)
+        print("Turns taken: %s" % turns_taken, file=game_log, flush=True)
+        print("Wrong guesses: %s" % wrong_guesses, file=game_log, flush=True)
 
         score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
         print("final score:", score)
