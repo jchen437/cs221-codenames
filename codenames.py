@@ -19,7 +19,20 @@ game_log = open("game_log.txt", "a+")
 clue_count = []
 wrong_guesses = 0
 turns_taken = 0
-#TRAIN_DATA_DIR = 'generated_data'
+RESULTS_FILE_PATH = "results.csv"
+
+def log_result(score, clue_count, turns_taken, wrong_guesses):
+    # log result of the game
+    new_file = False
+    if (not os.path.isfile(RESULTS_FILE_PATH)):
+        new_file = True
+        
+    with open (RESULTS_FILE_PATH, 'a') as f:
+        writer = csv.writer(f)
+        if (new_file):
+            writer.writerow(['Final score', 'Clue Count', 'Sum Clue Count', 'Turns Taken', 'Wrong Guesses'])
+        result = [score, clue_count, sum(clue_count), turns_taken, wrong_guesses]
+        writer.writerow(result)
 
 class CodenamesSearchProblem(util.SearchProblem):
     
@@ -414,6 +427,8 @@ class Codenames:
 
         score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
         print("final score:", score)
+
+        log_result(score, clue_count, turns_taken, wrong_guesses)
 
     def play_agent(self, reader: Reader):
         """
