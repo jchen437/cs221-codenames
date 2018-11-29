@@ -64,16 +64,12 @@ class CodenamesSearchProblem(util.SearchProblem):
         return actions
 
     def generate_poss_clues(self, board, my_words):
-        negs = [w for w in board if w not in my_words]
-        nm = (
-            self.game.vectors @ np.array([self.game.word_to_vector(word) for word in negs]).T
-        ).max(axis=1)
         pm = self.game.vectors @ np.array([self.game.word_to_vector(word) for word in my_words]).T
         clue_groups = []
-        for step, (clue, lower_bound, scores) in enumerate(zip(self.game.word_list, nm, pm)):
+        for step, (clue, lower_bound, scores) in enumerate(zip(self.game.word_list, self.game.nm, pm)):
 
             ps = PorterStemmer()
-            tb = TextBlob(clue).words
+            tb = self.game.word_blobs[clue].words
 
             if not tb:
                 continue
@@ -226,6 +222,7 @@ class Codenames:
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/glove_fitted_words.txt")]
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/kirkby_fitted_words.txt")]
         self.word_list = [w.lower().strip() for w in open("kirkby_wv.txt")]
+        self.word_blobs = {w:TextBlob(w) for w in self.word_list}
         # print("wordlist:", self.word_list)
         self.weirdness = [math.log(i + 1) + 1 for i in range(len(self.word_list))]
 
@@ -340,11 +337,18 @@ class Codenames:
         return best_clue, best_score, best_g
 
     def generate_start_state(self):
+        print("Starting the game...")
         words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
         my_words = set(random.sample(words, self.cnt_agents))
         self.blacklist = set(my_words)
         ps = PorterStemmer()
         self.stems = [ps.stem(w) for w in words]
+
+        self.negs = [w for w in words if w not in my_words]
+        self.nm = (
+            self.vectors @ np.array([self.word_to_vector(word) for word in self.negs]).T
+        ).max(axis=1)
+        print("Spymaster ready!")
         return words, my_words
 
     def save_train_example(self, board, guess):
@@ -379,7 +383,7 @@ class Codenames:
 
         while my_words:
             actions, costs = find_next_clue(tuple(words), tuple(my_words), self)
-            clue, group = actions[0]
+            clue, group = max(actions, key = lambda a: len(a[1]))
             #clue, score, group = self.find_clue(words, list(my_words))
             # Print the clue to the log_file for "debugging" purposes
             group_scores = np.array(
