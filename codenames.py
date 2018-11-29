@@ -8,7 +8,7 @@ from nltk.stem import PorterStemmer
 import ngrams
 import util
 from sklearn.cluster import KMeans
-
+from textblob import TextBlob
 #from search import CodenamesSearchProblem
 
 from typing import List, Tuple, Iterable
@@ -124,14 +124,22 @@ class CodenamesSearchProblem(util.SearchProblem):
         clue_groups = []
 
         for step, (clue, lower_bound, scores) in enumerate(zip(self.game.word_list, nm, pm)):
+        pm = self.game.vectors @ np.array([self.game.word_to_vector(word) for word in my_words]).T
+        clue_groups = []
+        for step, (clue, lower_bound, scores) in enumerate(zip(self.game.word_list, self.game.nm, pm)):
 
             ps = PorterStemmer()
-            stem = ps.stem(clue)
+            tb = self.game.word_blobs[clue].words
+
+            if not tb:
+                continue
+
+            stem = ps.stem(tb[0].singularize())
 
             prob = ngrams.Pwords([clue.lower()])
             if prob < 1e-12:
                 continue
-            if max(scores) <= lower_bound or stem in board or clue in self.game.blacklist or stem in self.game.blacklist:
+            if max(scores) <= lower_bound or stem in self.game.stems or clue in self.game.blacklist or stem in self.game.blacklist:
                 continue
 
             ss = sorted((s, i) for i, s in enumerate(scores))
@@ -279,6 +287,7 @@ class Codenames:
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/glove_fitted_words.txt")]
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/kirkby_fitted_words.txt")]
         self.word_list = [w.lower().strip() for w in open("kirkby_wv.txt")]
+        self.word_blobs = {w:TextBlob(w) for w in self.word_list}
         # print("wordlist:", self.word_list)
         self.weirdness = [math.log(i + 1) + 1 for i in range(len(self.word_list))]
 
@@ -393,9 +402,18 @@ class Codenames:
         return best_clue, best_score, best_g
 
     def generate_start_state(self):
+        print("Starting the game...")
         words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
         my_words = set(random.sample(words, self.cnt_agents))
         self.blacklist = set(my_words)
+        ps = PorterStemmer()
+        self.stems = [ps.stem(w) for w in words]
+
+        self.negs = [w for w in words if w not in my_words]
+        self.nm = (
+            self.vectors @ np.array([self.word_to_vector(word) for word in self.negs]).T
+        ).max(axis=1)
+        print("Spymaster ready!")
         return words, my_words
 
     def save_train_example(self, board, guess):
@@ -430,7 +448,7 @@ class Codenames:
 
         while my_words:
             actions, costs = find_next_clue(tuple(words), tuple(my_words), self)
-            clue, group = actions[0]
+            clue, group = max(actions, key = lambda a: len(a[1]))
             #clue, score, group = self.find_clue(words, list(my_words))
             # Print the clue to the log_file for "debugging" purposes
             group_scores = np.array(
@@ -484,7 +502,7 @@ class Codenames:
         print("Turns taken: %s" % turns_taken, file=game_log, flush=True)
         print("Wrong guesses: %s" % wrong_guesses, file=game_log, flush=True)
 
-        score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
+        score = 1.3602 * (sum(clue_count) / len(clue_count)) + 0.2524 * turns_taken + 0.4118 * wrong_guesses - 0.3789
         print("final score:", score)
 
         log_result(score, clue_count, turns_taken, wrong_guesses)
