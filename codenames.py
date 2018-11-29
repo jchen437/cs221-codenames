@@ -7,6 +7,8 @@ import os
 from nltk.stem import PorterStemmer
 import ngrams
 import util
+from sklearn.cluster import KMeans
+
 #from search import CodenamesSearchProblem
 
 from typing import List, Tuple, Iterable
@@ -26,7 +28,7 @@ def log_result(score, clue_count, turns_taken, wrong_guesses):
     new_file = False
     if (not os.path.isfile(RESULTS_FILE_PATH)):
         new_file = True
-        
+
     with open (RESULTS_FILE_PATH, 'a') as f:
         writer = csv.writer(f)
         if (new_file):
@@ -35,7 +37,7 @@ def log_result(score, clue_count, turns_taken, wrong_guesses):
         writer.writerow(result)
 
 class CodenamesSearchProblem(util.SearchProblem):
-    
+
     def __init__(self, board, my_words, game):
         self.board = board
         self.my_words = my_words
@@ -64,11 +66,63 @@ class CodenamesSearchProblem(util.SearchProblem):
 
     def generate_poss_clues(self, board, my_words):
         negs = [w for w in board if w not in my_words]
+
+        ##KMEANS START
+        # neg_vec = np.array([self.game.word_to_vector(word) for word in negs])
+        # pos_vec = np.array([self.game.word_to_vector(word) for word in my_words])
+        # kmeans = KMeans(n_clusters=min(len(my_words),3), random_state=0).fit(pos_vec)
+        # centers = kmeans.cluster_centers_
+        #
+        # closest  = float('inf')
+        # closest_center_index = 0
+        # closest_word = None
+        #
+        # clue_groups = []
+        #
+        # for step, clue in enumerate(self.game.word_list):
+        #
+        #     ps = PorterStemmer()
+        #     #print(clue)
+        #     stem = ps.stem(clue)
+        #
+        #     prob = ngrams.Pwords([clue.lower()])
+        #     if prob < 1e-12:
+        #         continue
+        #     if stem in board or clue in self.game.blacklist or stem in self.game.blacklist:
+        #         continue
+        #
+        #     clue_vec = self.game.word_to_vector(clue)
+        #
+        #     lowest = float('inf')
+        #     lowest_center_index = 0
+        #     lowest_word = None
+        #     for i, center in enumerate(centers):
+        #         dist = np.dot(clue_vec.T, center)/(np.linalg.norm(clue_vec.T) * np.linalg.norm(center))
+        #         if dist < lowest:
+        #             lowest = dist
+        #             lowest_center_index = i
+        #             lowest_word = clue
+        #
+        #     if lowest < closest:
+        #         closest = lowest
+        #         closest_center_index = lowest_center_index
+        #         closest_word = lowest_word
+        #
+        # group_words=[]
+        # for i in range(len(kmeans.labels_)):
+        #     if kmeans.labels_[i] == closest_center_index:
+        #         group_words.append(my_words[i])
+        # clue_groups.append((closest_word,group_words))
+
+        ###KMEANS END
+
+        ##START
         nm = (
             self.game.vectors @ np.array([self.game.word_to_vector(word) for word in negs]).T
         ).max(axis=1)
         pm = self.game.vectors @ np.array([self.game.word_to_vector(word) for word in my_words]).T
         clue_groups = []
+
         for step, (clue, lower_bound, scores) in enumerate(zip(self.game.word_list, nm, pm)):
 
             ps = PorterStemmer()
@@ -94,19 +148,24 @@ class CodenamesSearchProblem(util.SearchProblem):
 
             group = [my_words[i] for _, i in ss[j:]]
             clue_groups.append((clue, group))
+        ##END
 
         return clue_groups
 
     def cost(self, clue, group, board, my_words):
-        # negs = [w for w in board if w not in my_words]
+        negs = [w for w in board if w not in my_words]
         clue_vec = self.game.word_to_vector(clue)
         cost = 0
         for word in group:
             word_vec = self.game.word_to_vector(word)
-            cost -= np.dot(word_vec.T, clue_vec)
-        # for word in negs:
-            # neg_vec = self.game.word_to_vector(word)
-            # cost += np.dot(neg_vec.T, clue_vec)
+            cost -= np.dot(word_vec.T, clue_vec)/(np.linalg.norm(word_vec.T) * np.linalg.norm(clue_vec))
+        worst = 0
+        for word in negs:
+            neg_vec = self.game.word_to_vector(word)
+            neg_cost =  np.dot(neg_vec.T, clue_vec)/(np.linalg.norm(word_vec.T) * np.linalg.norm(clue_vec))
+            if neg_cost > worst:
+               worst = neg_cost
+        #cost += worst
         return cost
 
 
@@ -244,7 +303,7 @@ class Codenames:
         """
         def normalize(v):
             norm = np.linalg.norm(v)
-            if norm == 0: 
+            if norm == 0:
                return v
             return v / norm
         if word == "---":
@@ -282,7 +341,7 @@ class Codenames:
         for step, (clue, lower_bound, scores) in enumerate(zip(self.word_list, nm, pm)):
 
             # print("words:", clue, lower_bound, scores)
-            
+
             if step % 20000 == 0:
                 print(".", end="", flush=True)
 
