@@ -7,6 +7,7 @@ import os
 from nltk.stem import PorterStemmer
 import ngrams
 import util
+from textblob import TextBlob
 #from search import CodenamesSearchProblem
 
 from typing import List, Tuple, Iterable
@@ -72,12 +73,17 @@ class CodenamesSearchProblem(util.SearchProblem):
         for step, (clue, lower_bound, scores) in enumerate(zip(self.game.word_list, nm, pm)):
 
             ps = PorterStemmer()
-            stem = ps.stem(clue)
+            tb = TextBlob(clue).words
+
+            if not tb:
+                continue
+
+            stem = ps.stem(tb[0].singularize())
 
             prob = ngrams.Pwords([clue.lower()])
             if prob < 1e-12:
                 continue
-            if max(scores) <= lower_bound or stem in board or clue in self.game.blacklist or stem in self.game.blacklist:
+            if max(scores) <= lower_bound or stem in self.game.stems or clue in self.game.blacklist or stem in self.game.blacklist:
                 continue
 
             ss = sorted((s, i) for i, s in enumerate(scores))
@@ -337,6 +343,8 @@ class Codenames:
         words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
         my_words = set(random.sample(words, self.cnt_agents))
         self.blacklist = set(my_words)
+        ps = PorterStemmer()
+        self.stems = [ps.stem(w) for w in words]
         return words, my_words
 
     def save_train_example(self, board, guess):
@@ -425,7 +433,7 @@ class Codenames:
         print("Turns taken: %s" % turns_taken, file=game_log, flush=True)
         print("Wrong guesses: %s" % wrong_guesses, file=game_log, flush=True)
 
-        score = 5 / (sum(clue_count) / len(clue_count)) + turns_taken + 2 * wrong_guesses
+        score = 1.3602 * (sum(clue_count) / len(clue_count)) + 0.2524 * turns_taken + 0.4118 * wrong_guesses - 0.3789
         print("final score:", score)
 
         log_result(score, clue_count, turns_taken, wrong_guesses)
