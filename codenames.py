@@ -55,6 +55,7 @@ class CodenamesSearchProblem(util.SearchProblem):
     # Return a list of (action, newState, cost) tuples corresponding to edges
     # coming out of |state|.
     def succAndCost(self, state):
+        print(".", end="", flush=True)
         board, my_words = state
         actions = []
         for clue, group in self.generate_poss_clues(board, my_words):
@@ -118,17 +119,16 @@ class CodenamesSearchProblem(util.SearchProblem):
         clue_groups = []
         for step, (clue, lower_bound, scores) in enumerate(zip(self.game.word_list, self.game.nm, pm)):
 
+            prob = ngrams.Pwords([clue])
+            if prob < 1e-10:
+                continue
+
             ps = PorterStemmer()
-            tb = self.game.word_blobs[clue].words
-
-            if not tb:
+            single = self.game.word_single[clue]
+            if not single:
                 continue
+            stem = ps.stem(single)
 
-            stem = ps.stem(tb[0].singularize())
-
-            prob = ngrams.Pwords([clue.lower()])
-            if prob < 1e-12:
-                continue
             if max(scores) <= lower_bound or stem in self.game.stems or clue in self.game.blacklist or stem in self.game.blacklist:
                 continue
 
@@ -137,18 +137,18 @@ class CodenamesSearchProblem(util.SearchProblem):
             real_score, j = max(
                 (
                     (s - lower_bound)
-                    * ((len(ss) - j) ** self.game.agg - .99)
-                    / self.game.weirdness[step],
+                    * ((len(ss) - j) ** self.game.agg - .99),
+                    # / self.game.weirdness[step],
                     j,
                 )
                 for j, (s, _) in enumerate(ss)
             )
             
             group = [my_words[i] for _, i in ss[j:]]
-            clue_groups.append((clue, group))
+            clue_groups.append((real_score, (clue, group)))
         ##END
-
-        return clue_groups
+        return [p[1] for p in sorted(clue_groups)[-1000:]]
+        # return clue_groups
 
     def cost(self, clue, group, board, my_words):
         negs = self.game.negs
@@ -157,19 +157,20 @@ class CodenamesSearchProblem(util.SearchProblem):
         for word in group:
             word_vec = self.game.word_to_vector(word)
             cost -= np.dot(word_vec.T, clue_vec)/(np.linalg.norm(word_vec.T) * np.linalg.norm(clue_vec))
-        worst = 0
-        for word in negs:
-            neg_vec = self.game.word_to_vector(word)
-            neg_cost =  np.dot(neg_vec.T, clue_vec)/(np.linalg.norm(word_vec.T) * np.linalg.norm(clue_vec))
-            if neg_cost > worst:
-               worst = neg_cost
-        #cost += worst
+        # worst = 0
+        # for word in negs:
+        #     neg_vec = self.game.word_to_vector(word)
+        #     neg_cost =  np.dot(neg_vec.T, clue_vec)/(np.linalg.norm(word_vec.T) * np.linalg.norm(clue_vec))
+        #     if neg_cost > worst:
+        #        worst = neg_cost
+        # cost += worst
         return cost
 
 
 def find_next_clue(board, my_words, game):
 
     ucs = util.UniformCostSearch(verbose=0)
+    print("Thinking", end="", flush=True)
     ucs.solve(CodenamesSearchProblem(board, my_words, game))
 
     return ucs.actions, ucs.totalCost
@@ -277,7 +278,11 @@ class Codenames:
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/glove_fitted_words.txt")]
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/kirkby_fitted_words.txt")]
         self.word_list = [w.lower().strip() for w in open("kirkby_wv.txt")]
-        self.word_blobs = {w:TextBlob(w) for w in self.word_list}
+        word_blobs = {w:TextBlob(w) for w in self.word_list}
+        self.word_single = {w: word_blobs[w].words[0].singularize() 
+                                if word_blobs[w].words 
+                                else None 
+                            for w in word_blobs.keys()}
         # print("wordlist:", self.word_list)
         self.weirdness = [math.log(i + 1) + 1 for i in range(len(self.word_list))]
 
@@ -384,8 +389,8 @@ class Codenames:
 
             print()
             print(
-                'Clue: "{} {}" (certainty {:.2f}, remaining words {})'.format(
-                    clue, len(group), 0, len(my_words)
+                'Clue: "{} {}" (remaining words {})'.format(
+                    clue, len(group), len(my_words)
                 )
             )
             print("Clue: %s, %s" % (clue, len(group)), file=game_log, flush=True)
