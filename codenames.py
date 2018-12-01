@@ -93,7 +93,7 @@ class CodenamesSearchProblem(util.SearchProblem):
                 )
                 for j, (s, _) in enumerate(ss)
             )
-            
+
             group = [my_words[i] for _, i in ss[j:]]
             clue_groups.append((real_score, (clue, group)))
         ##END
@@ -118,7 +118,7 @@ class CodenamesSearchProblem(util.SearchProblem):
 
 
 def find_next_clue_kmeans(board, my_words, game):
-    neg_vec = np.array([game.word_to_vector(word) for word in game.negs])
+    #neg_vec = np.array([game.word_to_vector(word) for word in game.negs])
     pos_vec = np.array([game.word_to_vector(word) for word in my_words])
     # KAIS: emperically K=4 seems best if we just use a static K
     #kmeans = KMeans(n_clusters=min(len(my_words),3), random_state=0).fit(pos_vec)
@@ -134,13 +134,12 @@ def find_next_clue_kmeans(board, my_words, game):
     #kmeans = KMeans(n_clusters=min(len(my_words),4), random_state=0).fit(pos_vec)
     #kmeans = KMeans(n_clusters=min(len(my_words),5), random_state=0).fit(pos_vec)
     centers = kmeans.cluster_centers_
-    
+
     closest  = float('-inf')
     closest_center_index = 0
     closest_word = None
-    
+
     group = []
-    
     avg_dist = [0] * len(centers)
     cluster_counts = [0] * len(centers)
     clusters = [[] for _ in range(len(centers))]
@@ -173,13 +172,7 @@ def find_next_clue_kmeans(board, my_words, game):
 
         clue_vec = game.word_to_vector(clue)
 
-        # get most similar neg word to clue 
-        # TODO neg makes it really slow
-        highest_neg_sim = float('-inf')
-        for neg in neg_vec:
-            neg_similarity = np.dot(clue_vec.T, neg)/(np.linalg.norm(clue_vec.T) * np.linalg.norm(neg_vec))
-            if neg_similarity > highest_neg_sim:
-                highest_neg_sim = neg_similarity
+        highest_neg_sim = game.clue_neg_sim[clue]
 
         highest = float('-inf')
         highest_center_index = 0
@@ -205,17 +198,17 @@ def find_next_clue_kmeans(board, my_words, game):
                 highest = weight
                 highest_center_index = i
                 highest_word = clue
-    
+
         if highest > closest:
             closest = highest
             closest_center_index = highest_center_index
             closest_word = highest_word
-    
+
     for i in range(len(kmeans.labels_)):
         if kmeans.labels_[i] == closest_center_index:
             group.append(my_words[i])
     # end copied
-
+    print("clue: {}, group: {}".format(closest_word, group))
     return closest_word, group
 
 def find_next_clue(board, my_words, game):
@@ -386,6 +379,19 @@ class Codenames:
         self.nm = (
             self.vectors @ np.array([self.word_to_vector(word) for word in self.negs]).T
         ).max(axis=1)
+
+        self.clue_neg_sim = {}
+        neg_vec = np.array([self.word_to_vector(word) for word in self.negs])
+
+        for step, clue in enumerate(self.word_list):
+            clue_vec = self.word_to_vector(clue)
+            highest_neg_sim = float('-inf')
+            for neg in neg_vec:
+                neg_similarity = np.dot(clue_vec.T, neg)/(np.linalg.norm(clue_vec.T) * np.linalg.norm(neg_vec))
+                if neg_similarity > highest_neg_sim:
+                    highest_neg_sim = neg_similarity
+            self.clue_neg_sim[clue] = highest_neg_sim
+
         print("Spymaster ready!")
         return words, my_words
 
