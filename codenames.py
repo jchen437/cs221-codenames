@@ -187,7 +187,8 @@ def find_next_clue_kmeans(board, my_words, game):
             # we want to get the cluster the clue is closest to, want it to have more words and each
             # word should be close to the center, then we unweight this cluster by tis distance to the clue's
             # most similar neg word
-            weight = similarity * cluster_counts[i] - highest_neg_sim #  - 0.1 * avg_dist[i], avg_dist needs to be subtracted but then results in the, of, and
+            print("sim: {}, count: {}, neg_sim: {}".format(similarity, cluster_counts[i], highest_neg_sim))
+            weight = similarity * cluster_counts[i] - 0.1*highest_neg_sim #  - 0.1 * avg_dist[i], avg_dist needs to be subtracted but then results in the, of, and
             if weight > highest:
                 highest = weight
                 highest_center_index = i
@@ -363,7 +364,7 @@ class Codenames:
 
     def generate_start_state(self):
         print("Starting the game...")
-        random.seed(42)
+        random.seed(47)
         words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
         my_words = set(random.sample(words, self.cnt_agents))
         self.blacklist = set(my_words)
@@ -382,7 +383,7 @@ class Codenames:
             clue_vec = self.word_to_vector(clue)
             highest_neg_sim = float('-inf')
             for neg in neg_vec:
-                neg_similarity = np.dot(clue_vec.T, neg)/(np.linalg.norm(clue_vec.T) * np.linalg.norm(neg_vec))
+                neg_similarity = np.dot(clue_vec.T, neg)/(np.linalg.norm(clue_vec.T) * np.linalg.norm(neg))
                 if neg_similarity > highest_neg_sim:
                     highest_neg_sim = neg_similarity
             self.clue_neg_sim[clue] = highest_neg_sim
