@@ -120,8 +120,19 @@ class CodenamesSearchProblem(util.SearchProblem):
 def find_next_clue_kmeans(board, my_words, game):
     neg_vec = np.array([game.word_to_vector(word) for word in game.negs])
     pos_vec = np.array([game.word_to_vector(word) for word in my_words])
-    kmeans = KMeans(n_clusters=min(len(my_words),3), random_state=0).fit(pos_vec)
-    kmeans = KMeans(n_clusters=min(len(my_words),4), random_state=0).fit(pos_vec)
+    # KAIS: emperically K=4 seems best if we just use a static K
+    #kmeans = KMeans(n_clusters=min(len(my_words),3), random_state=0).fit(pos_vec)
+    print(len(my_words))
+    # TODO does min make sense? as soon as you get below 4, the clusters get really small, it always clusters separately
+    kmeans = None
+    K = 4
+    if len(my_words) > K:
+        kmeans = KMeans(n_clusters=K, random_state=0).fit(pos_vec)
+    else:
+        scaled_K = math.ceil(len(my_words) / 2)
+        kmeans = KMeans(n_clusters=scaled_K, random_state=0).fit(pos_vec)
+    #kmeans = KMeans(n_clusters=min(len(my_words),4), random_state=0).fit(pos_vec)
+    #kmeans = KMeans(n_clusters=min(len(my_words),5), random_state=0).fit(pos_vec)
     centers = kmeans.cluster_centers_
     
     closest  = float('-inf')
@@ -130,20 +141,20 @@ def find_next_clue_kmeans(board, my_words, game):
     
     group = []
     
-    #avg_similarity = [0] * len(centers)
-    ## loop over all clusters, get avg dist to center
-    #for i, label in enumerate(kmeans.labels_):
-    #    print avg_similarity
-    #    avg_similarity[label] += np.dot(centers[label].T, pos_vec[i]) / \
-    #                             (np.linalg.norm(centers[label].T) * np.linalg.norm(pos_vec[i]))
     avg_dist = [0] * len(centers)
     cluster_counts = [0] * len(centers)
+    clusters = [[] for _ in range(len(centers))]
     # loop over all clusters, get avg dist to center, count the number of words too
     for i, label in enumerate(kmeans.labels_):
         avg_dist[label] += np.linalg.norm(centers[label] - pos_vec[i])
         cluster_counts[label] += 1
+        clusters[label].append(my_words[i])
+
+    print("clusters:")
+    for c, cluster in zip(cluster_counts, clusters):
+        print(c)
+        print(cluster)
     
-    # end copied
     for step, clue in enumerate(game.word_list):
 
         ps = PorterStemmer()
@@ -163,6 +174,7 @@ def find_next_clue_kmeans(board, my_words, game):
         clue_vec = game.word_to_vector(clue)
 
         # get most similar neg word to clue 
+        # TODO neg makes it really slow
         highest_neg_sim = float('-inf')
         for neg in neg_vec:
             neg_similarity = np.dot(clue_vec.T, neg)/(np.linalg.norm(clue_vec.T) * np.linalg.norm(neg_vec))
@@ -181,7 +193,14 @@ def find_next_clue_kmeans(board, my_words, game):
             # we want to get the cluster the clue is closest to, want it to have more words and each
             # word should be close to the center, then we unweight this cluster by tis distance to the clue's
             # most similar neg word
-            weight = similarity * cluster_counts[i] * avg_dist[i] - highest_neg_sim
+            #if (cluster_counts[i] > 0):
+            #    print("---")
+            #    print(similarity)
+            #    print(cluster_counts[i])
+            #    print(highest_neg_sim)
+            weight = similarity * cluster_counts[i] - highest_neg_sim #  - 0.1 * avg_dist[i], avg_dist needs to be subtracted but then results in the, of, and
+            #if (weight > 0):
+            #    print(weight)
             if weight > highest:
                 highest = weight
                 highest_center_index = i
@@ -310,11 +329,11 @@ class Codenames:
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/glove_fitted_words.txt")]
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/kirkby_fitted_words.txt")]
         self.word_list = [w.lower().strip() for w in open("kirkby_wv.txt")]
-        word_blobs = {w:TextBlob(w) for w in self.word_list}
-        self.word_single = {w: word_blobs[w].words[0].singularize() 
-                                if word_blobs[w].words 
+        self.word_blobs = {w:TextBlob(w) for w in self.word_list}
+        self.word_single = {w: self.word_blobs[w].words[0].singularize() 
+                                if self.word_blobs[w].words 
                                 else None 
-                            for w in word_blobs.keys()}
+                            for w in self.word_blobs.keys()}
         # print("wordlist:", self.word_list)
         self.weirdness = [math.log(i + 1) + 1 for i in range(len(self.word_list))]
 
@@ -405,10 +424,10 @@ class Codenames:
             if turns_taken == 3:
                 self.clue_cap = 2
 
-            actions, costs = find_next_clue(tuple(words), tuple(my_words), self)
-            clue, group = max(actions, key = lambda a: len(a[1]))
+            #actions, costs = find_next_clue(tuple(words), tuple(my_words), self)
+            #clue, group = max(actions, key = lambda a: len(a[1]))
             # KAIS: uncomment line below to do kmeans instead
-            #clue, group = find_next_clue_kmeans(tuple(words), tuple(my_words), self)
+            clue, group = find_next_clue_kmeans(tuple(words), tuple(my_words), self)
             #clue, score, group = self.find_clue(words, list(my_words))
             # Print the clue to the log_file for "debugging" purposes
             group_scores = np.array(
