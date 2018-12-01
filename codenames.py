@@ -117,13 +117,15 @@ class CodenamesSearchProblem(util.SearchProblem):
         return cost
 
 
+def print_to_txt(file, string):
+    with open(file, "a") as f:
+        f.write(string)
+
 def find_next_clue_kmeans(board, my_words, game):
     #neg_vec = np.array([game.word_to_vector(word) for word in game.negs])
     pos_vec = np.array([game.word_to_vector(word) for word in my_words])
     # KAIS: emperically K=4 seems best if we just use a static K
     #kmeans = KMeans(n_clusters=min(len(my_words),3), random_state=0).fit(pos_vec)
-    print(len(my_words))
-    # TODO does min make sense? as soon as you get below 4, the clusters get really small, it always clusters separately
     kmeans = None
     K = 4
     if len(my_words) > K:
@@ -149,10 +151,9 @@ def find_next_clue_kmeans(board, my_words, game):
         cluster_counts[label] += 1
         clusters[label].append(my_words[i])
 
-    print("clusters:")
     for c, cluster in zip(cluster_counts, clusters):
-        print(c)
-        print(cluster)
+        print_to_txt("cluster.txt", str(c) + " ")
+        print_to_txt("cluster.txt", str(cluster) + "\n")
     
     for step, clue in enumerate(game.word_list):
 
@@ -186,14 +187,7 @@ def find_next_clue_kmeans(board, my_words, game):
             # we want to get the cluster the clue is closest to, want it to have more words and each
             # word should be close to the center, then we unweight this cluster by tis distance to the clue's
             # most similar neg word
-            #if (cluster_counts[i] > 0):
-            #    print("---")
-            #    print(similarity)
-            #    print(cluster_counts[i])
-            #    print(highest_neg_sim)
             weight = similarity * cluster_counts[i] - highest_neg_sim #  - 0.1 * avg_dist[i], avg_dist needs to be subtracted but then results in the, of, and
-            #if (weight > 0):
-            #    print(weight)
             if weight > highest:
                 highest = weight
                 highest_center_index = i
@@ -207,8 +201,8 @@ def find_next_clue_kmeans(board, my_words, game):
     for i in range(len(kmeans.labels_)):
         if kmeans.labels_[i] == closest_center_index:
             group.append(my_words[i])
-    # end copied
-    print("clue: {}, group: {}".format(closest_word, group))
+
+    print_to_txt("cluster.txt", "clue: {}, group: {}\n".format(closest_word, group))
     return closest_word, group
 
 def find_next_clue(board, my_words, game):
@@ -369,6 +363,7 @@ class Codenames:
 
     def generate_start_state(self):
         print("Starting the game...")
+        random.seed(42)
         words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
         my_words = set(random.sample(words, self.cnt_agents))
         self.blacklist = set(my_words)
