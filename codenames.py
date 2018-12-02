@@ -364,7 +364,6 @@ class Codenames:
 
     def generate_start_state(self):
         print("Starting the game...")
-        random.seed(47)
         words = random.sample(self.codenames, self.cnt_rows * self.cnt_cols)
         my_words = set(random.sample(words, self.cnt_agents))
         self.blacklist = set(my_words)
