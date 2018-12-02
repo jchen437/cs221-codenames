@@ -187,7 +187,7 @@ def find_next_clue_kmeans(board, my_words, game):
             # we want to get the cluster the clue is closest to, want it to have more words and each
             # word should be close to the center, then we unweight this cluster by tis distance to the clue's
             # most similar neg word
-            print("sim: {}, count: {}, neg_sim: {}".format(similarity, cluster_counts[i], highest_neg_sim))
+            #print("sim: {}, count: {}, neg_sim: {}".format(similarity, cluster_counts[i], highest_neg_sim))
             weight = similarity * cluster_counts[i] - 0.1*highest_neg_sim #  - 0.1 * avg_dist[i], avg_dist needs to be subtracted but then results in the, of, and
             if weight > highest:
                 highest = weight
@@ -425,10 +425,10 @@ class Codenames:
             if turns_taken == 3:
                 self.clue_cap = 2
 
-            #actions, costs = find_next_clue(tuple(words), tuple(my_words), self)
-            #clue, group = max(actions, key = lambda a: len(a[1]))
+            actions, costs = find_next_clue(tuple(words), tuple(my_words), self)
+            clue, group = max(actions, key = lambda a: len(a[1]))
             # KAIS: uncomment line below to do kmeans instead
-            clue, group = find_next_clue_kmeans(tuple(words), tuple(my_words), self)
+            #clue, group = find_next_clue_kmeans(tuple(words), tuple(my_words), self)
             #clue, score, group = self.find_clue(words, list(my_words))
             # Print the clue to the log_file for "debugging" purposes
             group_scores = np.array(
