@@ -157,17 +157,16 @@ def find_next_clue_kmeans(board, my_words, game):
     
     for step, clue in enumerate(game.word_list):
 
+        prob = ngrams.Pwords([clue])
+        if prob < 1e-10:
+            continue
+
         ps = PorterStemmer()
-        tb = game.word_blobs[clue].words
-
-        if not tb:
+        single = game.word_single[clue]
+        if not single:
             continue
+        stem = ps.stem(single)
 
-        stem = ps.stem(tb[0].singularize())
-
-        prob = ngrams.Pwords([clue.lower()])
-        if prob < 1e-12:
-            continue
         if stem in game.stems or clue in game.blacklist or stem in game.blacklist:
             continue
 
@@ -317,11 +316,11 @@ class Codenames:
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/glove_fitted_words.txt")]
         # self.word_list = [w.lower().strip() for w in open("fitted_vectors/kirkby_fitted_words.txt")]
         self.word_list = [w.lower().strip() for w in open("kirkby_wv.txt")]
-        self.word_blobs = {w:TextBlob(w) for w in self.word_list}
-        self.word_single = {w: self.word_blobs[w].words[0].singularize() 
-                                if self.word_blobs[w].words 
+        word_blobs = {w:TextBlob(w) for w in self.word_list}
+        self.word_single = {w: word_blobs[w].words[0].singularize() 
+                                if word_blobs[w].words 
                                 else None 
-                            for w in self.word_blobs.keys()}
+                            for w in word_blobs.keys()}
         # print("wordlist:", self.word_list)
         self.weirdness = [math.log(i + 1) + 1 for i in range(len(self.word_list))]
 
