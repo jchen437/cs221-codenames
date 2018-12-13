@@ -1,18 +1,31 @@
-Play Codenames with Glove
-=========================
+## Play Codenames with Word Embeddings
 
 This repository implements a simple single-player version of the codenames game
-by Vlaada Chvátil.
-You can play as the agent or the spymaster, and the Glove word vectors will
-take the role of your partner, as you try to find the 8 marked words in as few
-rounds as possible.
+by Vlaada Chvátil. The simulator is based on the Codenames simulator by [Thomas Ahle](https://github.com/thomasahle/codenames).
+
+You can play as the agent or the spymaster, and an AI will take up the opposing role, using word embeddings to generate clues or guesses. This implementation only optimizes the AI spymaster for better clue generation; the AI agent implementation has not been modified from Ahle's simulator.
+
+## Requirements
+
+- Python 3
+- Numpy
+- NLTK
+- TextBlob
+- scikit-learn
+
+## Getting Started
+```
+$ git clone git@github.com:jchen437/cs221-codenames.git
+```
+
+If you would like to use the full Wikipedia GloVe word embeddings, run the following. Otherwise, a set of embeddings trained on a subset of Wikipedia articles are already in the repository (see `dataset/wiki_subset_vectors.npy`).
 
 ```
-$ git clone git@github.com:thomasahle/codenames.git
-...
-
 $ sh get_glove.sh
-...
+```
+
+To play a game:
+```
 
 $ python3 codenames.py
 ...Loading vectors
@@ -22,31 +35,25 @@ $ python3 codenames.py
 Ready!
 
 Will you be agent or spymaster?: agent
+Starting the game...
+Spymaster ready!
+Thinking...
 
-     buck       bat   pumpkin    charge      iron
-     well      boot     chick superhero     glove
-   stream   germany      sock    dragon scientist
-     duck     bugle    school       ham   mammoth
-   bridge      fair  triangle   capital      horn
+Clue: "metal 3" (remaining words 5)
 
-Thinking....................
+   knife        mint        luck      carrot        pipe
+   telescope    australia   beijing   dress         dwarf
+   belt         dragon      ketchup   cast          ambulance
+   fence        match       unicorn   millionaire   cook
+   revolution   web         check     thief         arm
 
-Clue: "golden 6" (certainty 7.78, remaining words 8)
-
-Your guess: bridge
+Guesses left: 3
+Remaining words: 5
+Your guess: knife
 Correct!
 
 ```
 
-How it works
-============
-The bot decides what words go well together, by comparing their vectors in the GloVe trained on Wikipedia text.
-This means that words that often occour in the same articles and sentences are judged to be similar.
-In the example about, golden is of course similar to bridge by association with the Golden Gate Bridge.
-Other words that were found to be similar were 'dragon', 'triangle', 'duck', 'iron' and 'horn'.
+## Logging Results
 
-However, in Codenames the task is not merely to find words that describe other words well.
-You also need to make sure that 'bad words' are as different as possible from your clue.
-To achieve this, the bot tries to find a word that maximizes the similarity gap between the marked words and the bad words.
-
-If you want the bot to be more aggressive in its clues (choosing larger groups), try changing the `agg = .5` value near the top of `codenames.py` to a larger value, such as `.8` or `1.5`. 
+When playing games, the metrics used to create your score will be stored in a file `results.csv`. A more user-friendly display of the game, including the initial board, clues, and guesses taken will be stored in a file `game_log.txt`. As you play, additional game logs will be added to these files; previous games will not be overwritten.

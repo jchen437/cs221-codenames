@@ -79,7 +79,7 @@ def avoid_long_words(key, N):
 
 N = 1024908267229 ## Number of tokens
 
-Pw  = Pdist(datafile('count_1w.txt'), N, avoid_long_words)
+Pw  = Pdist(datafile('ngram_counts/count_1w.txt'), N, avoid_long_words)
 
 #### segment2: second version, with bigram counts, (p. 226-227)
 
@@ -90,7 +90,7 @@ def cPw(word, prev):
     except KeyError:
         return Pw(word)
 
-P2w = Pdist(datafile('count_2w.txt'), N)
+P2w = Pdist(datafile('ngram_counts/count_2w.txt'), N)
 
 @memo 
 def segment2(text, prev='<S>'): 
@@ -157,8 +157,8 @@ def ngrams(seq, n):
     "List all the (overlapping) ngrams in a sequence."
     return [seq[i:i+n] for i in range(1+len(seq)-n)]
 
-P3l = Pdist(datafile('count_3l.txt')) 
-P2l = Pdist(datafile('count_2l.txt')) ## We'll need it later 
+P3l = Pdist(datafile('ngram_counts/count_3l.txt')) 
+P2l = Pdist(datafile('ngram_counts/count_2l.txt')) ## We'll need it later 
 
 def hillclimb(x, f, neighbors, steps=10000): 
     "Search for an x that miximizes f(x), considering neighbors(x)." 
@@ -225,7 +225,7 @@ def Pedit(edit):
 
 p_spell_error = 1./20. 
 
-P1edit = Pdist(datafile('count_1edit.txt')) ## Probabilities of single edits 
+P1edit = Pdist(datafile('ngram_counts/count_1edit.txt')) ## Probabilities of single edits 
 
 def edits(word, d=2): 
     "Return a dict of {correct: edit} pairs within d edits of word." 

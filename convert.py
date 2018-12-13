@@ -20,5 +20,5 @@ with open('dataset/glove.6B.300d.txt', 'r') as inf:
 
 np.save('dataset/glove.6B.300d', np.array(matrix))
 
-with open('dataset/words', 'w') as ouf:
+with open('dataset/glove_words', 'w+') as ouf:
     ouf.write('\n'.join(words))
